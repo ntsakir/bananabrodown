@@ -12,7 +12,7 @@ public class Monkey_Controller : MonoBehaviour
     private float timer;
     public GameObject OtherMonkey;
     private float x, y;
-    private Animator anim;
+    public Animator anim;
     public float jumpHeight;
     // Start is called before the first frame update
     void Start()
@@ -61,6 +61,9 @@ public class Monkey_Controller : MonoBehaviour
             {
                 transform.rotation = Quaternion.Euler(0, 0, 0); 
             }
+
+            //Setting speed for run animation
+            anim.SetFloat("Speed", Mathf.Abs(x));
         }
     }
     void AirControls(InputAction.CallbackContext input)
@@ -82,6 +85,9 @@ public class Monkey_Controller : MonoBehaviour
                 Grounded = false;
             }
         }
+
+        //Setting y value for jump animation
+        anim.SetFloat("Jump", Mathf.Abs(y));
     }
 
     void MonkeSmash(InputAction.CallbackContext input)
@@ -147,6 +153,8 @@ public class Monkey_Controller : MonoBehaviour
         {
                 punch = true;
         }
+
+        anim.SetBool("Punch", punch);
     }
 
 
@@ -156,6 +164,8 @@ public class Monkey_Controller : MonoBehaviour
         {
             punch = false;
         }
+
+        anim.SetBool("Punch", punch);
     }
 
     public void TakeDamage()
