@@ -206,14 +206,15 @@ public class Monkey_Controller : MonoBehaviour
     {
         if(other.gameObject.CompareTag("Player"))
         {
-                punch = true;
+            punch = true;
+            anim.SetBool("Punch", punch);
         }
 
-        anim.SetBool("Punch", punch);
         else if (other.gameObject.CompareTag("Pickup") && !Smash && !grab)
         {
             pickup = other.gameObject;
         }
+
     }
 
 
@@ -222,9 +223,9 @@ public class Monkey_Controller : MonoBehaviour
         if (other.gameObject.CompareTag("Player"))
         {
             punch = false;
+            anim.SetBool("Punch", punch);
         }
 
-        anim.SetBool("Punch", punch);
         else if (other.gameObject.CompareTag("Pickup") && !grab)
         {
             pickup = null;
