@@ -5,12 +5,12 @@ using UnityEngine.InputSystem;
 
 public class Monkey_Controller : MonoBehaviour
 {
-    public bool WallGrab, Grounded, Stunned, grab, TopHang,Smash,punch;
+    public bool WallGrab, Grounded, grab,TopHang,Smash,punch,KnockBack,throwable;
     private Rigidbody2D rb;
     public int health;
     public float speed;
     private float timer;
-    public GameObject OtherMonkey;
+    public GameObject OtherMonkey,pickup,PickUpSpot;
     private float x, y;
     public Animator anim;
     public float jumpHeight;
@@ -24,7 +24,7 @@ public class Monkey_Controller : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (!Smash)
+        if (!Smash && !KnockBack)
         {
             if (Grounded)
             {
@@ -36,9 +36,21 @@ public class Monkey_Controller : MonoBehaviour
             }
         }
 
-        if(!Grounded && !WallGrab && !TopHang)
+        if (!Grounded && !WallGrab)
         {
             rb.gravityScale = 1.0f;
+        }
+
+        if (KnockBack)
+        {
+            if (Time.time > timer)
+            {
+                KnockBack = false;
+            }
+        }
+        if(grab &&pickup != null)
+        {
+            pickup.transform.position = PickUpSpot.transform.position;
         }
     }
     public void FullMovement(InputAction.CallbackContext input)
@@ -48,16 +60,23 @@ public class Monkey_Controller : MonoBehaviour
         MonkeSmash(input);
     }
 
+    public void FireControl(InputAction.CallbackContext input)
+    {
+        MonkeThrow(input);
+        MonkePunch(input);
+        MonkePickup(input);
+    }
+
     void GroundMovement(InputAction.CallbackContext input)
     {
-        if (!Smash)
+        if (!Smash && !KnockBack)
         {
             x = input.ReadValue<Vector2>().x;
-            if (x < 0 && x != 0 && Grounded)
+            if (x < 0 && x != 0)
             {
                 transform.rotation = Quaternion.Euler(0, 180, 0); 
             }
-            else if (x != 0 && Grounded)
+            else if (x != 0)
             {
                 transform.rotation = Quaternion.Euler(0, 0, 0); 
             }
@@ -80,7 +99,7 @@ public class Monkey_Controller : MonoBehaviour
             y = input.ReadValue<Vector2>().y;
             Vector2 Vy = new Vector2(0, y* jumpHeight*100);
             rb.AddForce(Vy);
-            if (y != 0)
+            if (y > 0)
             {
                 Grounded = false;
             }
@@ -93,27 +112,68 @@ public class Monkey_Controller : MonoBehaviour
     void MonkeSmash(InputAction.CallbackContext input)
     { 
         y = input.ReadValue<Vector2>().y;
-        if ((TopHang || !Grounded) && y < 0)
+        if (!Grounded && y < 0 && !Smash)
         {
             rb.velocity = new Vector2(0, 0);
             Smash = true;
-            Vector3 dir = (this.transform.position - OtherMonkey.transform.position)*speed*15;
+            Vector3 dir = (this.transform.position - OtherMonkey.transform.position)*speed*25;
+            Debug.Log(dir);
+
             dir.x *= -1;
-            dir.y *= -1;
+            dir.y *= dir.normalized.x;
+            if (dir.y > 0)
+            {
+                dir.y *= -1;
+            }
             rb.AddForce(dir);
         }
     }
 
-    public void MonkePunch(InputAction.CallbackContext input)
+    void MonkePunch(InputAction.CallbackContext input)
     {
-        if (punch)
+        if (punch && !Smash && !grab)
         {
             punch = false;
-            OtherMonkey.GetComponent<Monkey_Controller>().TakeDamage();
+            OtherMonkey.GetComponent<Monkey_Controller>().TakeDamage(rb.velocity.x);
         }
     }
 
-    void OnCollisionEnter2D(Collision2D other)
+    void MonkePickup(InputAction.CallbackContext input)
+    {
+        if(pickup != null && !grab)
+        { 
+            pickup.transform.SetParent(transform);
+            pickup.transform.GetComponent<BoxCollider2D>().isTrigger = true;
+            pickup.transform.rotation = Quaternion.Euler(0, 0, 0);
+            pickup.transform.GetComponent<Rigidbody2D>().constraints = RigidbodyConstraints2D.FreezePosition;
+            pickup.transform.GetComponent<Rigidbody2D>().gravityScale = 0.0f;
+            grab = true;
+            throwable = false;
+
+        }
+        else if(!throwable && grab)
+        {
+            if(input.ReadValue<float>() <= 0)
+            {
+                throwable = true;
+            }
+        }
+    }
+
+    void MonkeThrow(InputAction.CallbackContext input)
+    {
+        if (pickup != null && grab && throwable)
+        {
+            pickup.transform.SetParent(null);
+            pickup.transform.GetComponent<Rigidbody2D>().constraints = RigidbodyConstraints2D.None;
+            pickup.transform.GetComponent<Throwable>().Throw(OtherMonkey);
+            pickup = null;
+            throwable = false;
+            grab = false;
+        }
+    }
+
+        void OnCollisionEnter2D(Collision2D other)
     {
         if (other.gameObject.CompareTag("Ground"))
         {
@@ -127,14 +187,9 @@ public class Monkey_Controller : MonoBehaviour
             Smash = false;
             WallGrab = true;
         }
-        else if(other.gameObject.CompareTag("Roof") && !grab)
-        {
-            WallGrab = false;
-            TopHang = true;
-        }
         else if(other.gameObject.CompareTag("Player") && Smash)
         {
-            OtherMonkey.GetComponent<Monkey_Controller>().TakeDamage();
+            OtherMonkey.GetComponent<Monkey_Controller>().TakeDamage(rb.velocity.x);
             Smash = false;
         }
     }
@@ -155,6 +210,10 @@ public class Monkey_Controller : MonoBehaviour
         }
 
         anim.SetBool("Punch", punch);
+        else if (other.gameObject.CompareTag("Pickup") && !Smash && !grab)
+        {
+            pickup = other.gameObject;
+        }
     }
 
 
@@ -166,15 +225,27 @@ public class Monkey_Controller : MonoBehaviour
         }
 
         anim.SetBool("Punch", punch);
+        else if (other.gameObject.CompareTag("Pickup") && !grab)
+        {
+            pickup = null;
+        }
     }
 
-    public void TakeDamage()
+    public void TakeDamage(float Xval)
     {
         health -= 1;
+        SendBack(Xval);
     }
 
-    public void SendBack()
+    public void SendBack(float xval)
     {
+        rb.velocity = new Vector2(xval * speed, rb.velocity.y);
+        SetStun(.125f);
+    }
 
+    public void SetStun(float time)
+    {
+        timer = Time.time + time;
+        KnockBack = true;
     }
 }
