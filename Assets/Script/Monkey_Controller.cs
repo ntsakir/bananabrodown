@@ -164,12 +164,14 @@ public class Monkey_Controller : MonoBehaviour
     {
         if (pickup != null && grab && throwable)
         {
+            anim.SetBool("Throw", true);
             pickup.transform.SetParent(null);
             pickup.transform.GetComponent<Rigidbody2D>().constraints = RigidbodyConstraints2D.None;
             pickup.transform.GetComponent<Throwable>().Throw(OtherMonkey);
             pickup = null;
             throwable = false;
             grab = false;
+            anim.SetBool("Throw", false);
         }
     }
 
